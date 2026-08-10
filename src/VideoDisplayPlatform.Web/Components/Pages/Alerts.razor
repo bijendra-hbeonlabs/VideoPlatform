@@ -1,0 +1,98 @@
+@page "/alerts"
+@using VideoDisplayPlatform.Application.Services
+@using VideoDisplayPlatform.Domain.Entities.Ops
+@inject DevicePlatformStateService StateService
+@implements IDisposable
+
+<PageTitle>Alerts & Telemetry - Video Display Platform</PageTitle>
+
+<div class="top-bar">
+    <div class="page-header">
+        <h1>System Health & Alerts Center</h1>
+        <p>Real-time device incident management, thermal metrics, and network connectivity events</p>
+    </div>
+</div>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Alert ID</th>
+                <th>Device</th>
+                <th>Incident Message</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Action Workflow</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var alert in AlertList)
+            {
+                var dev = StateService.GetDeviceById(alert.DeviceId ?? 0);
+                <tr>
+                    <td class="code-font" style="color: var(--primary);">#ALT-@alert.AlertId</td>
+                    <td>
+                        <div style="font-weight: 600; color: white;">@(dev?.DeviceName ?? "System Wide")</div>
+                        <div class="code-font" style="font-size: 0.75rem; color: var(--text-dim);">@(dev?.DeviceCode ?? "GLOBAL")</div>
+                    </td>
+                    <td>
+                        <div style="font-weight: 500; color: white;">@alert.Message</div>
+                        <div class="code-font" style="font-size: 0.75rem; color: var(--text-dim);">@alert.DetailsJson</div>
+                    </td>
+                    <td>
+                        @if (alert.Severity == 3)
+                        {
+                            <span class="badge badge-offline">CRITICAL</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-warning">WARNING</span>
+                        }
+                    </td>
+                    <td>
+                        @if (alert.Status == 1)
+                        {
+                            <span class="badge badge-warning">UNRESOLVED</span>
+                        }
+                        else if (alert.Status == 2)
+                        {
+                            <span class="badge badge-online">ACKNOWLEDGED</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-online">RESOLVED</span>
+                        }
+                    </td>
+                    <td>
+                        @if (alert.Status == 1)
+                        {
+                            <div style="display: flex; gap: 0.4rem;">
+                                <button class="btn btn-secondary btn-sm" @onclick="() => StateService.AcknowledgeAlert(alert.AlertId)">Acknowledge</button>
+                                <button class="btn btn-primary btn-sm" @onclick="() => StateService.ResolveAlert(alert.AlertId)">Resolve</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <span style="font-size: 0.85rem; color: var(--text-dim);">No action needed</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<Alert> AlertList = new();
+
+    protected override void OnInitialized()
+    {
+        StateService.OnStateChanged += HandleStateChanged;
+        RefreshData();
+    }
+
+    private void RefreshData() => AlertList = StateService.GetAllAlerts();
+
+    private void HandleStateChanged() => InvokeAsync(() => { RefreshData(); StateHasChanged(); });
+    public void Dispose() => StateService.OnStateChanged -= HandleStateChanged;
+}

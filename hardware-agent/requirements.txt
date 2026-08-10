@@ -1,0 +1,17 @@
+# HBeonLabs Video Display Platform — Hardware Dependencies
+# Install: pip install -r requirements.txt
+
+# MQTT communication
+paho-mqtt>=2.0.0
+
+# System metrics (CPU, RAM, Temp, Disk)
+psutil>=5.9.0
+
+# HTTP requests
+requests>=2.31.0
+
+# MariaDB / MySQL database connector
+pymysql>=1.1.0
+
+# Environment variables loader
+python-dotenv>=1.0.0

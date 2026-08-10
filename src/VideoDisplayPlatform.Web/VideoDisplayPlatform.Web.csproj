@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\VideoDisplayPlatform.Domain\VideoDisplayPlatform.Domain.csproj" />
+    <ProjectReference Include="..\VideoDisplayPlatform.Contracts\VideoDisplayPlatform.Contracts.csproj" />
+    <ProjectReference Include="..\VideoDisplayPlatform.Application\VideoDisplayPlatform.Application.csproj" />
+    <ProjectReference Include="..\VideoDisplayPlatform.Infrastructure\VideoDisplayPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\VideoDisplayPlatform.Workers\VideoDisplayPlatform.Workers.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

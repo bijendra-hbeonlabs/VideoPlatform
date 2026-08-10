@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\VideoDisplayPlatform.Domain\VideoDisplayPlatform.Domain.csproj" />
+    <ProjectReference Include="..\VideoDisplayPlatform.Contracts\VideoDisplayPlatform.Contracts.csproj" />
+    <ProjectReference Include="..\VideoDisplayPlatform.Application\VideoDisplayPlatform.Application.csproj" />
+    <ProjectReference Include="..\VideoDisplayPlatform.Infrastructure\VideoDisplayPlatform.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

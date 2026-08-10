@@ -1,0 +1,183 @@
+@page "/"
+@using VideoDisplayPlatform.Application.Services
+@inject DevicePlatformStateService StateService
+@implements IDisposable
+
+<PageTitle>Dashboard - Video Display Platform</PageTitle>
+
+<div class="top-bar">
+    <div class="page-header">
+        <h1>Operations Control Center</h1>
+        <p>Real-time telemetry, display fleet performance, and video playback status</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <span class="badge badge-online">
+            <span class="status-dot"></span> LIVE SYSTEM ACTIVE
+        </span>
+        <a href="devices" class="btn btn-primary">+ Add New Device</a>
+    </div>
+</div>
+
+<!-- Fleet KPI Grid -->
+<div class="card-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Display Devices</div>
+        <div class="stat-value">@TotalDevices</div>
+        <div class="stat-footer">
+            <span style="color: var(--status-online); font-weight: 600;">@OnlineDevices Online</span>
+            <span>•</span>
+            <span style="color: var(--status-offline);">@OfflineDevices Warning/Offline</span>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Average CPU / Temp</div>
+        <div class="stat-value">@AvgCpu.ToString("F1")% <span style="font-size: 1.1rem; color: var(--text-muted); font-weight: 400;">/ @AvgTemp.ToString("F1")°C</span></div>
+        <div class="stat-footer">
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" style="width: @(AvgCpu)%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Active Playlists</div>
+        <div class="stat-value">@PlaylistsCount</div>
+        <div class="stat-footer">
+            <span style="color: var(--accent-cyan); font-weight: 600;">3 Media Files</span>
+            <span>•</span>
+            <span>H.264 / HEVC 4K</span>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Active System Alerts</div>
+        <div class="stat-value" style="color: @(ActiveAlerts > 0 ? "var(--accent-amber)" : "white")">@ActiveAlerts</div>
+        <div class="stat-footer">
+            <span style="color: var(--accent-amber);">Requires Attention</span>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+    <!-- Active Fleet Table -->
+    <div class="table-container">
+        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="font-size: 1.1rem; font-weight: 600;">Live Device Telemetry</h3>
+            <a href="devices" style="color: var(--primary); font-size: 0.85rem; text-decoration: none; font-weight: 600;">View All Fleet →</a>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Device</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>CPU / RAM</th>
+                    <th>Signal</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var dev in Devices.Take(4))
+                {
+                    var status = StateService.GetDeviceStatus(dev.DeviceId);
+                    var isOnline = status?.ConnectivityStatus == 1;
+
+                    <tr>
+                        <td>
+                            <div style="font-weight: 600; color: white;">@dev.DeviceName</div>
+                            <div class="code-font" style="font-size: 0.75rem; color: var(--text-dim);">@dev.DeviceCode • @dev.SerialNumber</div>
+                        </td>
+                        <td>
+                            <span style="color: var(--text-muted);">@(dev.Location?.City ?? "Default Site")</span>
+                        </td>
+                        <td>
+                            @if (isOnline)
+                            {
+                                <span class="badge badge-online"><span class="status-dot"></span> Online</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-offline"><span class="status-dot"></span> Warning</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="code-font" style="font-size: 0.85rem;">CPU: @(status?.CpuPercent ?? 0)%</div>
+                            <div class="code-font" style="font-size: 0.75rem; color: var(--text-dim);">RAM: @(status?.MemoryPercent ?? 0)%</div>
+                        </td>
+                        <td>
+                            <span class="code-font" style="color: var(--accent-cyan);">@(status?.SignalStrength ?? -60) dBm</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" @onclick="() => DispatchReboot(dev.DeviceId)">Reboot</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Live System Alerts Feed -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1.25rem;">Active System Alerts</h3>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            @foreach (var alert in StateService.GetAllAlerts().Take(4))
+            {
+                <div style="padding: 0.85rem; border-left: 3px solid @(alert.Severity == 3 ? "var(--accent-rose)" : "var(--accent-amber)"); background: rgba(0,0,0,0.2); border-radius: 4px;">
+                    <div style="font-size: 0.85rem; font-weight: 600; color: white;">@alert.Message</div>
+                    <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem;">@alert.CreatedAtUtc.ToLocalTime().ToString("g")</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<VideoDisplayPlatform.Domain.Entities.Core.Device> Devices = new();
+    private int TotalDevices;
+    private int OnlineDevices;
+    private int OfflineDevices;
+    private decimal AvgCpu;
+    private decimal AvgTemp;
+    private int PlaylistsCount;
+    private int ActiveAlerts;
+
+    protected override void OnInitialized()
+    {
+        StateService.OnStateChanged += HandleStateChanged;
+        RefreshData();
+    }
+
+    private void RefreshData()
+    {
+        Devices = StateService.GetAllDevices();
+        TotalDevices = Devices.Count;
+        OnlineDevices = Devices.Count(d => StateService.GetDeviceStatus(d.DeviceId)?.ConnectivityStatus == 1);
+        OfflineDevices = TotalDevices - OnlineDevices;
+
+        var statuses = Devices.Select(d => StateService.GetDeviceStatus(d.DeviceId)).Where(s => s != null).ToList();
+        AvgCpu = statuses.Any() ? statuses.Average(s => s!.CpuPercent ?? 0) : 0;
+        AvgTemp = statuses.Any() ? statuses.Average(s => s!.TemperatureC ?? 0) : 0;
+        PlaylistsCount = StateService.GetAllPlaylists().Count;
+        ActiveAlerts = StateService.GetAllAlerts().Count(a => a.Status == 1);
+    }
+
+    private void HandleStateChanged()
+    {
+        InvokeAsync(() =>
+        {
+            RefreshData();
+            StateHasChanged();
+        });
+    }
+
+    private void DispatchReboot(long deviceId)
+    {
+        StateService.DispatchCommand(deviceId, 1, "{\"action\":\"REBOOT\"}");
+    }
+
+    public void Dispose()
+    {
+        StateService.OnStateChanged -= HandleStateChanged;
+    }
+}

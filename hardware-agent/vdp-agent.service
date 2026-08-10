@@ -1,0 +1,16 @@
+[Unit]
+Description=HBeonLabs Video Display Platform Hardware Agent
+After=network-online.target graphical.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/hardware-agent
+ExecStart=/usr/bin/python3 /home/pi/hardware-agent/device_agent.py
+Restart=always
+RestartSec=10
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=graphical.target

@@ -1,0 +1,139 @@
+@page "/commands"
+@using VideoDisplayPlatform.Application.Common.Interfaces
+@using VideoDisplayPlatform.Application.Services
+@using VideoDisplayPlatform.Domain.Entities.Command
+@inject DevicePlatformStateService StateService
+@inject IMqttService MqttService
+@implements IDisposable
+
+<PageTitle>Command Control - Video Display Platform</PageTitle>
+
+<div class="top-bar">
+    <div class="page-header">
+        <h1>Command Control Console</h1>
+        <p>Dispatch real-time MQTT remote control commands & inspect command execution history</p>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;">
+    <!-- Dispatch Panel -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1.25rem;">Dispatch Remote Command</h3>
+        
+        <div class="form-group">
+            <label class="form-label">Target Device *</label>
+            <select class="form-select" @bind="SelectedDeviceId">
+                <option value="0">Select Device Node...</option>
+                @foreach (var dev in StateService.GetAllDevices())
+                {
+                    <option value="@dev.DeviceId">@dev.DeviceName (@dev.DeviceCode)</option>
+                }
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Command Type *</label>
+            <select class="form-select" @bind="CommandType">
+                <option value="REBOOT">REBOOT SYSTEM</option>
+                <option value="SYNC_MEDIA">SYNC MEDIA FILES</option>
+                <option value="PLAY">PLAY VIDEO LOOP</option>
+                <option value="PAUSE">PAUSE PLAYBACK</option>
+                <option value="SET_VOLUME">SET VOLUME LEVEL</option>
+                <option value="SET_BRIGHTNESS">SET BRIGHTNESS LEVEL</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Payload JSON</label>
+            <textarea class="form-textarea code-font" @bind="PayloadJson" rows="3"></textarea>
+        </div>
+
+        <button class="btn btn-primary" style="width: 100%; justify-content: center;" @onclick="DispatchCommand">
+            ⚡ Dispatch MQTT Command
+        </button>
+    </div>
+
+    <!-- Commands History Log -->
+    <div class="table-container">
+        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color);">
+            <h3 style="font-size: 1.1rem; font-weight: 600;">Command Execution History Log</h3>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Cmd ID</th>
+                    <th>Target Device</th>
+                    <th>Command / Action</th>
+                    <th>Status</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var cmd in CommandList)
+                {
+                    var dev = StateService.GetDeviceById(cmd.DeviceId);
+                    <tr>
+                        <td class="code-font" style="color: var(--primary);">#@cmd.CommandId</td>
+                        <td>
+                            <div style="font-weight: 600; color: white;">@(dev?.DeviceName ?? $"Device #{cmd.DeviceId}")</div>
+                        </td>
+                        <td>
+                            <div class="code-font" style="font-size: 0.85rem; color: var(--accent-cyan);">@GetCommandName(cmd.CommandType)</div>
+                            <div class="code-font" style="font-size: 0.75rem; color: var(--text-dim);">@cmd.PayloadJson</div>
+                        </td>
+                        <td>
+                            <span class="badge badge-online">Executed</span>
+                        </td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">
+                            @cmd.CreatedAtUtc.ToLocalTime().ToString("T")
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<DeviceCommand> CommandList = new();
+    private long SelectedDeviceId = 0;
+    private string CommandType = "REBOOT";
+    private string PayloadJson = "{\"action\":\"REBOOT\",\"timeoutSeconds\":10}";
+
+    protected override void OnInitialized()
+    {
+        StateService.OnStateChanged += HandleStateChanged;
+        RefreshData();
+    }
+
+    private void RefreshData()
+    {
+        CommandList = StateService.GetAllCommands();
+    }
+
+    private async Task DispatchCommand()
+    {
+        if (SelectedDeviceId > 0)
+        {
+            await MqttService.PublishCommandAsync(SelectedDeviceId, CommandType, new { action = CommandType, payload = PayloadJson });
+            RefreshData();
+        }
+    }
+
+    private string GetCommandName(short type) => type switch
+    {
+        1 => "REBOOT",
+        2 => "SHUTDOWN",
+        3 => "PLAY",
+        4 => "PAUSE",
+        5 => "STOP",
+        6 => "UPDATE_CONFIG",
+        7 => "SYNC_MEDIA",
+        8 => "SET_VOLUME",
+        9 => "SET_BRIGHTNESS",
+        _ => "CUSTOM_COMMAND"
+    };
+
+    private void HandleStateChanged() => InvokeAsync(() => { RefreshData(); StateHasChanged(); });
+    public void Dispose() => StateService.OnStateChanged -= HandleStateChanged;
+}

@@ -1,0 +1,56 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "VideoDisplayPlatform.Application/1.0.0": {
+        "dependencies": {
+          "VideoDisplayPlatform.Contracts": "1.0.0",
+          "VideoDisplayPlatform.Domain": "1.0.0"
+        },
+        "runtime": {
+          "VideoDisplayPlatform.Application.dll": {}
+        }
+      },
+      "VideoDisplayPlatform.Contracts/1.0.0": {
+        "dependencies": {
+          "VideoDisplayPlatform.Domain": "1.0.0"
+        },
+        "runtime": {
+          "VideoDisplayPlatform.Contracts.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "VideoDisplayPlatform.Domain/1.0.0": {
+        "runtime": {
+          "VideoDisplayPlatform.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "VideoDisplayPlatform.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "VideoDisplayPlatform.Contracts/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "VideoDisplayPlatform.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

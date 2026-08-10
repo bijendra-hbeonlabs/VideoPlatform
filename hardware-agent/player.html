@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HBeonLabs VDP — Kiosk Player</title>
+<style>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   DESIGN TOKENS (LIGHT THEME - NO BLACK BACKGROUNDS)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+:root{
+    --accent:#4f46e5; --cyan:#0284c7; --green:#059669;
+    --red:#e11d48;    --yellow:#d97706;
+    --bg:#f8fafc;     --overlay:rgba(255,255,255,0.85);
+    --glass:rgba(255,255,255,0.92);
+    --border:rgba(0,0,0,0.1);
+    --text:#0f172a;   --muted:#475569; --dim:#64748b;
+    --bar-h:58px;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RESET / BASE
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+    background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',system-ui,sans-serif;
+    overflow:hidden;width:100vw;height:100vh;
+    display:flex;flex-direction:column;
+    -webkit-font-smoothing:antialiased;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   VIDEO STAGE
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+#stage{
+    position:relative;flex:1;background:#f1f5f9;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+}
+#vid{
+    width:100%;height:100%;
+    object-fit:contain;display:block;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   OSD (On-Screen Display)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+#osd{
+    position:absolute;inset:0;
+    pointer-events:none;z-index:8;
+}
+
+/* Top-left: device info badge */
+#badge-device{
+    position:absolute;top:14px;left:14px;
+    background:rgba(255,255,255,0.9);
+    backdrop-filter:blur(10px);
+    border:1px solid var(--border);border-radius:10px;
+    padding:8px 13px;font-size:0.72rem;
+    line-height:1.75;color:var(--cyan);
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    transition:opacity 0.5s;
+}
+#badge-device .row{ display:flex;align-items:center;gap:6px; }
+#badge-device .label{ color:var(--muted);min-width:56px;font-size:0.68rem; }
+#badge-device .val{ color:#0f172a;font-weight:600; }
+
+/* Top-right: clock */
+#badge-clock{
+    position:absolute;top:14px;right:14px;
+    background:rgba(255,255,255,0.9);
+    backdrop-filter:blur(10px);
+    border:1px solid var(--border);border-radius:10px;
+    padding:9px 16px;text-align:center;
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+}
+#clock-time{
+    font-size:1.55rem;font-weight:700;
+    letter-spacing:3px;font-variant-numeric:tabular-nums;
+    color:#0f172a;
+}
+#clock-date{font-size:0.68rem;color:var(--muted);margin-top:2px;font-weight:500;}
+
+/* Centre: NOW PLAYING ticker */
+#now-playing{
+    position:absolute;bottom:var(--bar-h);left:0;right:0;
+    height:36px;overflow:hidden;
+    background:linear-gradient(90deg,rgba(79,70,229,0.9),rgba(2,132,199,0.9));
+    color:#ffffff;
+    display:flex;align-items:center;
+    opacity:0;transition:opacity 0.4s;
+}
+#now-playing.show{opacity:1;}
+#now-playing-text{
+    white-space:nowrap;padding:0 24px;
+    font-size:0.85rem;font-weight:600;
+    animation:scroll-text 18s linear infinite;
+}
+@keyframes scroll-text{
+    from{transform:translateX(100vw)}
+    to{transform:translateX(-100%)}
+}
+
+/* No-video state */
+#no-video{
+    position:absolute;inset:0;display:none;
+    flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 45%,rgba(79,70,229,0.08),#f8fafc 60%);
+    gap:1rem;color:#0f172a;
+}
+#no-video.show{display:flex;}
+#no-video .icon{font-size:5rem;}
+#no-video h2{font-size:1.5rem;color:#0f172a;font-weight:700;}
+#no-video p{color:var(--muted);font-size:0.92rem;text-align:center;max-width:400px;line-height:1.6;}
+#no-video code{
+    background:rgba(0,0,0,0.05);border:1px solid var(--border);
+    border-radius:6px;padding:2px 8px;font-size:0.85rem;color:var(--accent);font-weight:600;
+}
+
+/* Loading spinner */
+#loading{
+    position:absolute;inset:0;background:rgba(248,250,252,0.9);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:1rem;z-index:20;transition:opacity 0.4s;
+}
+#loading.hidden{opacity:0;pointer-events:none;}
+.spin{
+    width:52px;height:52px;border-radius:50%;
+    border:4px solid rgba(79,70,229,0.15);
+    border-top-color:var(--accent);
+    animation:spin 0.9s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading p{color:#0f172a;font-size:0.88rem;font-weight:600;}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CONTROL BAR
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+#bar{
+    height:var(--bar-h);
+    background:var(--glass);backdrop-filter:blur(14px);
+    border-top:1px solid var(--border);
+    display:flex;align-items:center;gap:10px;
+    padding:0 16px;z-index:15;flex-shrink:0;
+    box-shadow:0 -4px 16px rgba(0,0,0,0.04);
+}
+
+/* Buttons */
+.btn{
+    background:rgba(0,0,0,0.04);
+    border:1px solid var(--border);border-radius:8px;
+    color:#0f172a;cursor:pointer;
+    padding:6px 11px;font-size:1rem;line-height:1;
+    transition:background 0.13s,border-color 0.13s,transform 0.1s;
+    user-select:none;font-weight:600;
+}
+.btn:hover{background:rgba(79,70,229,0.12);border-color:var(--accent);}
+.btn:active{transform:scale(0.91);}
+.btn.on{background:rgba(79,70,229,0.15);border-color:var(--accent);color:var(--accent);}
+
+/* Info column */
+#info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+#info-title{
+    font-size:0.82rem;font-weight:700;color:#0f172a;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#info-sub{font-size:0.68rem;color:var(--muted);font-weight:500;}
+
+/* Progress bar */
+#prog-wrap{
+    flex:2;min-width:0;display:flex;flex-direction:column;gap:4px;
+}
+#prog-bg{
+    height:5px;background:rgba(0,0,0,0.08);border-radius:3px;overflow:hidden;
+    cursor:pointer;
+}
+#prog-fill{
+    height:100%;
+    background:linear-gradient(90deg,var(--accent),var(--cyan));
+    border-radius:3px;width:0%;transition:width 0.5s linear;
+}
+
+/* Time */
+#time{
+    font-size:0.8rem;color:#0f172a;white-space:nowrap;
+    min-width:96px;text-align:center;font-variant-numeric:tabular-nums;font-weight:600;
+}
+
+/* Volume */
+#vol-wrap{display:flex;align-items:center;gap:5px;}
+#vol-pct{font-size:0.72rem;color:var(--muted);min-width:32px;text-align:right;font-weight:600;}
+input[type=range]{
+    -webkit-appearance:none;width:72px;height:4px;
+    background:rgba(0,0,0,0.12);border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:13px;height:13px;
+    border-radius:50%;background:var(--accent);cursor:pointer;
+    box-shadow:0 0 4px rgba(79,70,229,0.4);
+}
+
+/* MQTT status */
+#mqtt-dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--yellow);flex-shrink:0;
+    transition:background 0.3s;
+}
+#mqtt-dot.ok{background:var(--green);animation:pulse 2.5s infinite;}
+#mqtt-dot.err{background:var(--red);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+#mqtt-lbl{font-size:0.68rem;color:#0f172a;white-space:nowrap;font-weight:600;}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PLAYLIST SIDEBAR
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+#sidebar{
+    position:absolute;right:0;top:0;
+    bottom:calc(var(--bar-h) + 36px);
+    width:270px;
+    background:rgba(255,255,255,0.98);
+    border-left:1px solid var(--border);
+    box-shadow:-4px 0 16px rgba(0,0,0,0.06);
+    z-index:14;display:flex;flex-direction:column;
+    transform:translateX(100%);
+    transition:transform 0.25s ease;
+}
+#sidebar.open{transform:translateX(0);}
+#sb-head{
+    padding:13px 15px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;
+    font-size:0.85rem;font-weight:700;color:#0f172a;
+}
+#sb-list{flex:1;overflow-y:auto;padding:6px;}
+#sb-list::-webkit-scrollbar{width:4px;}
+#sb-list::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
+.pl-row{
+    display:flex;align-items:center;gap:8px;
+    padding:8px 10px;border-radius:8px;cursor:pointer;
+    transition:background 0.12s;margin-bottom:2px;
+}
+.pl-row:hover{background:rgba(0,0,0,0.04);}
+.pl-row.active{
+    background:rgba(79,70,229,0.1);
+    border:1px solid rgba(79,70,229,0.25);
+}
+.pl-row.active .pl-name{color:var(--accent);font-weight:700;}
+.pl-num{font-size:0.68rem;color:var(--muted);min-width:20px;text-align:right;font-weight:600;}
+.pl-name{
+    font-size:0.78rem;color:#0f172a;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;font-weight:500;
+}
+.pl-size{font-size:0.65rem;color:var(--dim);margin-top:1px;}
+.pl-bar{
+    height:3px;background:rgba(0,0,0,0.08);border-radius:2px;margin-top:4px;overflow:hidden;
+}
+.pl-bar-fill{height:100%;background:var(--accent);width:0%;transition:width 0.3s;}
+
+/* Playing indicator */
+.pl-play-icon{font-size:0.75rem;flex-shrink:0;color:var(--accent);animation:blink 1.2s step-start infinite;}
+@keyframes blink{50%{opacity:0}}
+</style>
+</head>
+<body>
+
+<!-- ████████  VIDEO STAGE  ████████████████████████████████████ -->
+<div id="stage">
+
+    <video id="vid" playsinline preload="metadata"></video>
+
+    <!-- Playlist sidebar -->
+    <div id="sidebar">
+        <div id="sb-head">
+            <span>📋 Playlist &nbsp;<span id="sb-count" style="color:var(--muted);font-weight:500;font-size:0.78rem;">(0 videos)</span></span>
+            <button class="btn" onclick="toggleSidebar()" style="padding:3px 8px;font-size:0.78rem;">✕ Close</button>
+        </div>
+        <div id="sb-list"></div>
+    </div>
+
+    <!-- OSD overlay -->
+    <div id="osd">
+        <!-- Device info -->
+        <div id="badge-device">
+            <div class="row"><span class="label">🖥 Host</span><span class="val" id="osd-host">—</span></div>
+            <div class="row"><span class="label">📡 IP</span><span class="val" id="osd-ip">—</span></div>
+            <div class="row"><span class="label">🔑 MAC</span><span class="val" id="osd-mac">—</span></div>
+            <div class="row"><span class="label">🆔 UID</span><span class="val" id="osd-uid">—</span></div>
+            <div class="row"><span class="label">🔗 MQTT</span><span id="osd-mqtt" style="color:var(--yellow);font-size:0.7rem;font-weight:600;">Connecting…</span></div>
+        </div>
+        <!-- Clock -->
+        <div id="badge-clock">
+            <div id="clock-time">00:00:00</div>
+            <div id="clock-date"></div>
+        </div>
+        <!-- Now-playing ticker -->
+        <div id="now-playing">
+            <span id="now-playing-text">▶ Now Playing: —</span>
+        </div>
+    </div>
+
+    <!-- No-video placeholder -->
+    <div id="no-video">
+        <div class="icon">🎬</div>
+        <h2>No Videos Found</h2>
+        <p>Add <code>.mp4</code> / <code>.avi</code> / <code>.mkv</code> files to the folder:<br>
+           <code>hardware-agent/media/videos/</code></p>
+        <p style="font-size:0.8rem;margin-top:0.5rem;color:var(--muted);">
+            Then press <kbd style="background:rgba(0,0,0,0.06);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:#0f172a;font-weight:600;">S</kbd> to rescan, or use the web dashboard to sync media.</p>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading">
+        <div class="spin"></div>
+        <p>Loading playlist…</p>
+    </div>
+
+</div>
+
+<!-- ████████  CONTROL BAR  ████████████████████████████████████ -->
+<div id="bar">
+    <!-- Playback controls -->
+    <button class="btn" id="btn-prev"    onclick="prevVideo()"    title="Previous (←)">⏮</button>
+    <button class="btn" id="btn-play"    onclick="togglePlay()"   title="Play/Pause (Space)">▶</button>
+    <button class="btn" id="btn-next"    onclick="nextVideo()"    title="Next (→)">⏭</button>
+    <button class="btn on" id="btn-loop" onclick="toggleLoop()"   title="Loop playlist (L)">🔁</button>
+
+    <!-- Info -->
+    <div id="info">
+        <div id="info-title">No video loaded</div>
+        <div id="info-sub">—</div>
+    </div>
+
+    <!-- Progress -->
+    <div id="prog-wrap">
+        <div id="prog-bg" onclick="seekClick(event)" title="Click to seek">
+            <div id="prog-fill"></div>
+        </div>
+    </div>
+
+    <!-- Time -->
+    <div id="time">0:00 / 0:00</div>
+
+    <!-- Volume -->
+    <div id="vol-wrap">
+        <button class="btn" id="btn-mute" onclick="toggleMute()" title="Mute (M)" style="font-size:0.82rem;">🔊</button>
+        <input  id="vol-range" type="range" min="0" max="100" value="80"
+                oninput="setVol(this.value)" title="Volume">
+        <span id="vol-pct">80%</span>
+    </div>
+
+    <!-- Playlist toggle -->
+    <button class="btn" id="btn-pl" onclick="toggleSidebar()" title="Playlist (P)">📋</button>
+
+    <!-- Fullscreen -->
+    <button class="btn" id="btn-fs" onclick="toggleFullscreen()" title="Fullscreen (F)">⛶</button>
+
+    <!-- MQTT status -->
+    <div style="display:flex;align-items:center;gap:5px;">
+        <div id="mqtt-dot"></div>
+        <span id="mqtt-lbl">MQTT</span>
+    </div>
+</div>
+
+<!-- ████████████████████████████████████████████████████████████
+     SCRIPT
+     ████████████████████████████████████████████████████████████ -->
+<script>
+'use strict';
+
+const API   = 'http://localhost:8765';   // local_server in device_agent.py
+const POLL_MS = 1000;                    // poll for MQTT commands every 1s
+const REPORT_MS = 2000;                  // report playback state every 2s
+
+let playlist     = [];
+let curIdx       = 0;
+let loopEnabled  = true;
+let sidebarOpen  = false;
+let muted        = false;
+let volume       = 80;
+let lastReport   = 0;
+
+const vid = document.getElementById('vid');
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CLOCK
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function tickClock() {
+    const n = new Date();
+    document.getElementById('clock-time').textContent =
+        n.toLocaleTimeString('en-IN', {hour12: false});
+    document.getElementById('clock-date').textContent =
+        n.toLocaleDateString('en-IN', {weekday:'short', day:'2-digit', month:'short', year:'numeric'});
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DEVICE IDENTITY
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function loadIdentity() {
+    try {
+        const r = await fetch(`${API}/identity`);
+        const d = await r.json();
+        document.getElementById('osd-host').textContent = d.hostname || '—';
+        document.getElementById('osd-ip').textContent   = d.ip || '—';
+        document.getElementById('osd-mac').textContent  = d.mac || '—';
+        document.getElementById('osd-uid').textContent  = d.hwUid || '—';
+    } catch (e) {
+        document.getElementById('osd-host').textContent = location.hostname || '—';
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PLAYLIST
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function loadPlaylist(autoplay = true) {
+    try {
+        const r = await fetch(`${API}/playlist`);
+        const d = await r.json();
+        playlist = d.videos || [];
+    } catch (e) {
+        playlist = [];
+    }
+
+    renderSidebar();
+    hide('loading');
+
+    if (playlist.length === 0) {
+        show('no-video');
+    } else {
+        hide('no-video');
+        if (autoplay) loadVideo(0, true);
+    }
+}
+
+function renderSidebar() {
+    const list = document.getElementById('sb-list');
+    document.getElementById('sb-count').textContent = `(${playlist.length} video${playlist.length !== 1 ? 's' : ''})`;
+    list.innerHTML = '';
+    playlist.forEach((v, i) => {
+        const row = document.createElement('div');
+        row.className = `pl-row${i === curIdx ? ' active' : ''}`;
+        row.id = `pl-${i}`;
+        row.innerHTML = `
+            <span class="pl-num">${i+1}</span>
+            <div style="flex:1;min-width:0">
+                <div class="pl-name" title="${v.name}">${v.name}</div>
+                <div class="pl-size">${v.size || '—'}</div>
+                <div class="pl-bar"><div class="pl-bar-fill" id="plbar-${i}"></div></div>
+            </div>
+            ${i === curIdx ? '<span class="pl-play-icon">▶</span>' : ''}
+        `;
+        row.onclick = () => loadVideo(i, true);
+        list.appendChild(row);
+    });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// VIDEO PLAYBACK
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function loadVideo(idx, play = true) {
+    if (!playlist.length) return;
+    curIdx = ((idx % playlist.length) + playlist.length) % playlist.length;
+    const item = playlist[curIdx];
+
+    vid.src = `${API}${item.url}`;
+    vid.load();
+
+    document.getElementById('info-title').textContent = item.name;
+    document.getElementById('info-sub').textContent =
+        `${curIdx + 1} of ${playlist.length}  •  ${item.size || '—'}`;
+
+    const np = document.getElementById('now-playing');
+    document.getElementById('now-playing-text').textContent =
+        `▶  Now Playing: ${item.name}  (${curIdx + 1} / ${playlist.length})`;
+    np.classList.add('show');
+    setTimeout(() => np.classList.remove('show'), 8000);
+
+    renderSidebar();
+
+    if (play) {
+        vid.play().catch(() => {});
+    }
+    reportState();
+}
+
+function nextVideo() {
+    if (!playlist.length) return;
+    loadVideo(curIdx + 1, true);
+}
+function prevVideo() {
+    if (!playlist.length) return;
+    loadVideo(curIdx - 1, true);
+}
+
+function togglePlay() {
+    if (vid.paused) {
+        vid.play();
+    } else {
+        vid.pause();
+    }
+}
+
+function toggleLoop() {
+    loopEnabled = !loopEnabled;
+    document.getElementById('btn-loop').classList.toggle('on', loopEnabled);
+}
+
+function setVol(v) {
+    volume = parseInt(v);
+    vid.volume = volume / 100;
+    document.getElementById('vol-pct').textContent = volume + '%';
+}
+
+function toggleMute() {
+    muted = !muted;
+    vid.muted = muted;
+    document.getElementById('btn-mute').textContent = muted ? '🔇' : '🔊';
+}
+
+function seekClick(e) {
+    if (!vid.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct  = (e.clientX - rect.left) / rect.width;
+    vid.currentTime = pct * vid.duration;
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+    document.getElementById('sidebar').classList.toggle('open', sidebarOpen);
+    document.getElementById('btn-pl').classList.toggle('on', sidebarOpen);
+}
+
+vid.addEventListener('playing', () => {
+    document.getElementById('btn-play').textContent = '⏸';
+});
+vid.addEventListener('pause', () => {
+    document.getElementById('btn-play').textContent = '▶';
+});
+vid.addEventListener('ended', () => {
+    document.getElementById('btn-play').textContent = '▶';
+    if (loopEnabled) {
+        const next = curIdx + 1;
+        if (next < playlist.length) {
+            loadVideo(next, true);
+        } else {
+            loadVideo(0, true);
+        }
+    }
+});
+
+vid.addEventListener('timeupdate', () => {
+    const cur = vid.currentTime || 0;
+    const dur = vid.duration    || 0;
+    const pct = dur > 0 ? (cur / dur) * 100 : 0;
+
+    document.getElementById('prog-fill').style.width = pct + '%';
+    document.getElementById('time').textContent =
+        `${fmtTime(cur)} / ${fmtTime(dur)}`;
+
+    const bar = document.getElementById(`plbar-${curIdx}`);
+    if (bar) bar.style.width = pct + '%';
+
+    const now = Date.now();
+    if (now - lastReport > REPORT_MS) {
+        lastReport = now;
+        reportState();
+    }
+});
+
+vid.addEventListener('error', () => {
+    console.warn('Video error. Trying next...');
+    setTimeout(() => nextVideo(), 2000);
+});
+
+function reportState() {
+    const item = playlist[curIdx];
+    const state = vid.paused ? 'PAUSED' : 'PLAYING';
+    const params = new URLSearchParams({
+        state,
+        video:   item ? item.name : '',
+        index:   curIdx,
+        elapsed: Math.floor(vid.currentTime || 0),
+    });
+    fetch(`${API}/report?${params}`).catch(() => {});
+}
+
+async function pollCommands() {
+    try {
+        const r = await fetch(`${API}/poll`);
+        const d = await r.json();
+        if (d.command) {
+            executeCommand(d.command);
+        }
+    } catch (e) {}
+}
+setInterval(pollCommands, POLL_MS);
+
+function executeCommand(cmd) {
+    const action  = (cmd.action || '').toUpperCase();
+    const payload = cmd.payload || {};
+    console.log('[MQTT→Browser] Command:', action, payload);
+
+    switch (action) {
+        case 'PLAY': {
+            const vp = payload.videoPath || payload.video || '';
+            if (vp) {
+                const name = vp.split('/').pop();
+                const idx  = playlist.findIndex(v => v.name === name);
+                if (idx >= 0) loadVideo(idx, true);
+                else vid.play().catch(() => {});
+            } else {
+                vid.play().catch(() => {});
+            }
+            break;
+        }
+        case 'PAUSE':  vid.pause(); break;
+        case 'RESUME': vid.play().catch(() => {}); break;
+        case 'STOP':   vid.pause(); vid.currentTime = 0; break;
+        case 'NEXT':   nextVideo(); break;
+        case 'PREV':   prevVideo(); break;
+        case 'SET_VOLUME': {
+            const v = payload.level ?? payload.value ?? 80;
+            setVol(v);
+            document.getElementById('vol-range').value = v;
+            break;
+        }
+        case 'SYNC_MEDIA':
+        case 'RELOAD':
+            loadPlaylist(false);
+            break;
+    }
+}
+
+async function checkMqttStatus() {
+    try {
+        const r = await fetch(`${API}/status`);
+        const d = await r.json();
+        const ok = d.mqttConnected === true;
+        const dot = document.getElementById('mqtt-dot');
+        const lbl = document.getElementById('mqtt-lbl');
+        const osd = document.getElementById('osd-mqtt');
+        dot.className = ok ? 'ok' : 'err';
+        lbl.textContent = ok ? 'MQTT ●' : 'MQTT ✕';
+        if (osd) {
+            osd.textContent = ok ? 'Connected' : 'Disconnected';
+            osd.style.color = ok ? 'var(--green)' : 'var(--red)';
+        }
+    } catch (e) {}
+}
+setInterval(checkMqttStatus, 3000);
+checkMqttStatus();
+
+document.addEventListener('keydown', e => {
+    switch (e.key) {
+        case ' ':        e.preventDefault(); togglePlay();     break;
+        case 'ArrowRight': nextVideo();                        break;
+        case 'ArrowLeft':  prevVideo();                        break;
+        case 'ArrowUp':
+            setVol(Math.min(100, volume + 5));
+            document.getElementById('vol-range').value = volume;
+            break;
+        case 'ArrowDown':
+            setVol(Math.max(0, volume - 5));
+            document.getElementById('vol-range').value = volume;
+            break;
+        case 'm': case 'M': toggleMute();        break;
+        case 'l': case 'L': toggleLoop();        break;
+        case 'p': case 'P': toggleSidebar();     break;
+        case 'f': case 'F': toggleFullscreen();  break;
+        case 's': case 'S': loadPlaylist(false); break;
+    }
+});
+
+function fmtTime(s) {
+    if (!s || isNaN(s)) return '0:00';
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = Math.floor(s % 60);
+    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    return `${m}:${String(sec).padStart(2,'0')}`;
+}
+function show(id) { document.getElementById(id).classList.add('show'); }
+function hide(id) {
+    const el = document.getElementById(id);
+    if (el.classList.contains('show')) el.classList.remove('show');
+    el.classList.add('hidden');
+}
+
+vid.volume = volume / 100;
+document.getElementById('btn-loop').classList.add('on');
+
+setTimeout(() => {
+    const l = document.getElementById('loading');
+    l.style.opacity = '0';
+    setTimeout(() => l.style.display = 'none', 400);
+}, 3000);
+
+loadIdentity();
+loadPlaylist(true);
+</script>
+</body>
+</html>

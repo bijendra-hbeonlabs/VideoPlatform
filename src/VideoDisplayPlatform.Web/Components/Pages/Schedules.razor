@@ -1,0 +1,107 @@
+@page "/schedules"
+@using VideoDisplayPlatform.Application.Services
+@using VideoDisplayPlatform.Domain.Entities.Schedule
+@inject DevicePlatformStateService StateService
+@implements IDisposable
+
+<PageTitle>Schedules - Video Display Platform</PageTitle>
+
+<div class="top-bar">
+    <div class="page-header">
+        <h1>Broadcast Schedules Matrix</h1>
+        <p>Set time-based display schedule rules, priorities, and automated day/night triggers</p>
+    </div>
+    <div>
+        <button class="btn btn-primary" @onclick="OpenAddModal">+ New Broadcast Schedule</button>
+    </div>
+</div>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Schedule Name</th>
+                <th>Target Days / Window</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var sch in ScheduleList)
+            {
+                <tr>
+                    <td>
+                        <div style="font-weight: 600; color: white;">@sch.ScheduleName</div>
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">Priority Level @sch.Priority</div>
+                    </td>
+                    <td>
+                        <div class="code-font" style="font-size: 0.85rem; color: var(--accent-cyan);">24/7 Continuous Loop</div>
+                    </td>
+                    <td>
+                        <span class="code-font">Level @sch.Priority</span>
+                    </td>
+                    <td>
+                        <span class="badge badge-online"><span class="status-dot"></span> Active</span>
+                    </td>
+                    <td>
+                        <span style="color: var(--text-muted);">@sch.CreatedAtUtc.ToLocalTime().ToString("d")</span>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (IsAddModalOpen)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 style="font-size: 1.25rem; font-weight: 700; color: white;">Create Broadcast Schedule</h3>
+                <button style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;" @onclick="CloseAddModal">×</button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Schedule Name *</label>
+                <input type="text" class="form-input" @bind="ScheduleName" placeholder="e.g. Peak Hours Commercial Matrix" />
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                <button class="btn btn-secondary" @onclick="CloseAddModal">Cancel</button>
+                <button class="btn btn-primary" @onclick="HandleCreate">✓ Save Schedule</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Schedule> ScheduleList = new();
+    private bool IsAddModalOpen = false;
+    private string ScheduleName = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        StateService.OnStateChanged += HandleStateChanged;
+        RefreshData();
+    }
+
+    private void RefreshData() => ScheduleList = StateService.GetAllSchedules();
+
+    private void OpenAddModal() => IsAddModalOpen = true;
+    private void CloseAddModal() => IsAddModalOpen = false;
+
+    private void HandleCreate()
+    {
+        if (!string.IsNullOrWhiteSpace(ScheduleName))
+        {
+            StateService.CreateSchedule(ScheduleName, DateTime.UtcNow, DateTime.UtcNow.AddYears(1));
+            IsAddModalOpen = false;
+            RefreshData();
+        }
+    }
+
+    private void HandleStateChanged() => InvokeAsync(() => { RefreshData(); StateHasChanged(); });
+
+    public void Dispose() => StateService.OnStateChanged -= HandleStateChanged;
+}
